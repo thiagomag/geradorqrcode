@@ -21,4 +21,5 @@ public class GenerateQRCodeRequest {
     private String text;
     private String foregroundColor;
     private String backgroundColor;
+    private String logoPath;
 }
