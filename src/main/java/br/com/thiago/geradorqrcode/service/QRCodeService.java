@@ -1,10 +1,12 @@
 package br.com.thiago.geradorqrcode.service;
 
+import br.com.thiago.geradorqrcode.controller.dto.GenerateQRCodeRequest;
 import br.com.thiago.geradorqrcode.webclient.GoogleDriveApiWebClient;
 import br.com.thiago.geradorqrcode.webclient.dto.GoogleDriveApiResponse;
 import br.com.thiago.geradorqrcode.webclient.dto.UploadFileRequest;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
+import com.google.zxing.client.j2se.MatrixToImageConfig;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
@@ -17,6 +19,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -24,13 +27,22 @@ public class QRCodeService {
 
     private final GoogleDriveApiWebClient googleDriveApiWebClient;
 
-    public Mono<byte[]> generateQRCode(String text) {
+    public Mono<byte[]> generateQRCode(GenerateQRCodeRequest request) {
         return Mono.fromCallable(() -> {
                     try {
+                        final var text = request.getText();
+                        final var backgroundColor = Integer.parseInt(Optional.ofNullable(request.getBackgroundColor())
+                                .orElse("0xFFFFFFFF"));
+                        final var foregroundColor = Integer.parseInt(Optional.ofNullable(request.getForegroundColor())
+                                .orElse("0xFF000000"));
+
                         final var qrCodeWriter = new QRCodeWriter();
                         final var bitMatrix = qrCodeWriter.encode(text, BarcodeFormat.QR_CODE, 300, 300);
+
+                        final var config = new MatrixToImageConfig(foregroundColor, backgroundColor);
+
                         final var outputStream = new ByteArrayOutputStream();
-                        MatrixToImageWriter.writeToStream(bitMatrix, "PNG", outputStream);
+                        MatrixToImageWriter.writeToStream(bitMatrix, "PNG", outputStream, config);
                         return outputStream.toByteArray();
                     } catch (IOException | WriterException e) {
                         throw new RuntimeException(e);
