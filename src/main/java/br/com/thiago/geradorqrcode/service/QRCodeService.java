@@ -18,7 +18,6 @@ import reactor.core.scheduler.Schedulers;
 import javax.imageio.ImageIO;
 import java.awt.*;
 import java.awt.image.BufferedImage;
-import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -104,7 +103,7 @@ public class QRCodeService {
         return qrImage;
     }
 
-    public Mono<GoogleDriveApiResponse> generateQRCodeLink(String text) {
+
     public Mono<GenerateQrCodeResponse> generateQRCodeLink(GenerateQRCodeRequest request) {
         final var googleApiUploadRequest = buildGoogleApiUploadRequest();
         final var text = request.getText();
