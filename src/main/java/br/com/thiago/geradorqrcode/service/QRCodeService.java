@@ -1,8 +1,8 @@
 package br.com.thiago.geradorqrcode.service;
 
 import br.com.thiago.geradorqrcode.controller.dto.GenerateQRCodeRequest;
+import br.com.thiago.geradorqrcode.controller.dto.GenerateQrCodeResponse;
 import br.com.thiago.geradorqrcode.webclient.GoogleDriveApiWebClient;
-import br.com.thiago.geradorqrcode.webclient.dto.GoogleDriveApiResponse;
 import br.com.thiago.geradorqrcode.webclient.dto.UploadFileRequest;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
@@ -15,11 +15,12 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.awt.*;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -31,15 +32,15 @@ public class QRCodeService {
         return Mono.fromCallable(() -> {
                     try {
                         final var text = request.getText();
-                        final var backgroundColor = Integer.parseInt(Optional.ofNullable(request.getBackgroundColor())
-                                .orElse("0xFFFFFFFF"));
-                        final var foregroundColor = Integer.parseInt(Optional.ofNullable(request.getForegroundColor())
-                                .orElse("0xFF000000"));
+//                        final var backgroundColor = Integer.valueOf(Optional.ofNullable(request.getBackgroundColor())
+//                                .orElse("0xFFFFFFFF"));
+//                        final var foregroundColor = Integer.valueOf(Optional.ofNullable(request.getForegroundColor())
+//                                .orElse("0xFF000000"));
 
                         final var qrCodeWriter = new QRCodeWriter();
                         final var bitMatrix = qrCodeWriter.encode(text, BarcodeFormat.QR_CODE, 300, 300);
 
-                        final var config = new MatrixToImageConfig(foregroundColor, backgroundColor);
+                        final var config = new MatrixToImageConfig(Color.BLACK.hashCode(), Color.WHITE.hashCode());
 
                         final var outputStream = new ByteArrayOutputStream();
                         MatrixToImageWriter.writeToStream(bitMatrix, "PNG", outputStream, config);
@@ -51,10 +52,19 @@ public class QRCodeService {
                 .onErrorResume(error -> Mono.error(new RuntimeException("Error generating QR Code", error)));
     }
 
-    public Mono<GoogleDriveApiResponse> generateQRCodeLink(String text) {
+    public Mono<GenerateQrCodeResponse> generateQRCodeLink(GenerateQRCodeRequest request) {
         final var googleApiUploadRequest = buildGoogleApiUploadRequest();
+        final var text = request.getText();
         return generateQRCodeToFile(text, 300, 300)
-                .flatMap(file -> googleDriveApiWebClient.uploadFile(file, googleApiUploadRequest))
+                .flatMap(file -> googleDriveApiWebClient.uploadFile(file, googleApiUploadRequest)
+                        .publishOn(Schedulers.boundedElastic())
+                        .map(googleDriveApiResponse -> {
+                            try {
+                                return new GenerateQrCodeResponse(Files.readAllBytes(file.toPath()), googleDriveApiResponse.getUrl());
+                            } catch (IOException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }))
                 .onErrorResume(error -> Mono.error(new RuntimeException("Error generating QR Code link", error)));
     }
 

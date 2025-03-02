@@ -1,3 +1,7 @@
 spring:
   application:
     name: geradorqrcode
+
+client:
+  google-drive-api-service:
+    url: ${GOOGLE_DRIVE_API_SERVICE_URL:https://google-drive-api-service.onrender.com}

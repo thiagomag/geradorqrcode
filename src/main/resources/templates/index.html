@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+  <meta charset="UTF-8">
+  <title>Gerador de QR Code</title>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background-color: #f8f9fa;
+    }
+    .container {
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 100%;
+      max-width: 400px;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+    }
+    #qrcodeContainer {
+      margin-top: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #qrcode {
+      display: none;
+      width: 200px;
+      height: 200px;
+      margin-top: 10px;
+    }
+    #qrUrlContainer {
+      display: none;
+      width: 100%;
+      margin-top: 10px;
+      text-align: justify;
+      word-break: break-word;
+      padding: 10px;
+      border-radius: 5px;
+      background-color: #eef2ff;
+      font-size: 14px;
+      color: #333;
+    }
+    #qrUrlContainer a {
+      color: #007bff;
+      text-decoration: none;
+      font-weight: bold;
+    }
+    #qrUrlContainer a:hover {
+      text-decoration: underline;
+    }
+    #copyBtn {
+      display: none;
+      margin-top: 5px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 8px;
+      cursor: pointer;
+      width: 100%;
+      border-radius: 5px;
+    }
+    #downloadBtn {
+      display: none;
+      margin-top: 10px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 10px;
+      cursor: pointer;
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Gerador de QR Code</h2>
+  <form id="qrForm">
+    <input type="text" id="text" name="text" placeholder="Digite o conteúdo do QR Code" required>
+    <button type="submit">Gerar QR Code</button>
+  </form>
+
+  <div id="qrcodeContainer">
+    <img id="qrcode" src="" alt="QR Code">
+    <div id="qrUrlContainer"></div>
+    <button id="copyBtn">Copiar Link</button>
+    <button id="downloadBtn">Baixar QR Code</button>
+  </div>
+</div>
+
+<script>
+  $(document).ready(function () {
+    $("#qrForm").submit(function (event) {
+      event.preventDefault();
+      let text = $("#text").val();
+
+      let requestData = { text: text };
+
+      $.ajax({
+        url: "/qrcode/generate-link",
+        type: "POST",
+        contentType: "application/json",
+        data: JSON.stringify(requestData),
+        dataType: "json",
+        success: function (response) {
+          console.log("Resposta da API:", response);
+
+          if (response && response.qr_code && response.url) {
+            $("#qrcode").attr("src", response.qr_code).show();
+            $("#qrUrlContainer")
+                    .html(`<a href="${response.url}" target="_blank">${response.url}</a>`)
+                    .show();
+            $("#copyBtn").show().off("click").on("click", function () {
+              navigator.clipboard.writeText(response.url).then(() => {
+                alert("Link copiado!");
+              }).catch(err => {
+                console.error("Erro ao copiar link:", err);
+              });
+            });
+            $("#downloadBtn").show().off("click").on("click", function () {
+              window.location.href = "/qrcode/download?text=" + encodeURIComponent(text);
+            });
+          } else {
+            alert("Erro: Resposta inválida do servidor.");
+          }
+        },
+        error: function (xhr) {
+          console.error("Erro na requisição:", xhr);
+          alert("Erro ao gerar QR Code! " + xhr.status + " - " + xhr.responseText);
+        }
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
+
