@@ -1,7 +1,7 @@
-package br.com.thiago.geradorqrcode.webclient;
+package br.com.thiago.geradorqrcode.webclient.googledriveapi;
 
-import br.com.thiago.geradorqrcode.webclient.dto.GoogleDriveApiResponse;
-import br.com.thiago.geradorqrcode.webclient.dto.UploadFileRequest;
+import br.com.thiago.geradorqrcode.webclient.googledriveapi.dto.GoogleDriveApiResponse;
+import br.com.thiago.geradorqrcode.webclient.googledriveapi.dto.UploadFileRequest;
 import reactor.core.publisher.Mono;
 
 import java.io.File;

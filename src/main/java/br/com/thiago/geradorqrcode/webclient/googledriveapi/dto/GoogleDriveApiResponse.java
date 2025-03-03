@@ -1,4 +1,4 @@
-package br.com.thiago.geradorqrcode.webclient.dto;
+package br.com.thiago.geradorqrcode.webclient.googledriveapi.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.PropertyNamingStrategies;

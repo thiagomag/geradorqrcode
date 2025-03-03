@@ -4,9 +4,10 @@ import br.com.thiago.geradorqrcode.controller.dto.GenerateQRCodeRequest;
 import br.com.thiago.geradorqrcode.controller.dto.GenerateQrCodeResponse;
 import br.com.thiago.geradorqrcode.model.QrCode;
 import br.com.thiago.geradorqrcode.repository.QrCodeRepository;
-import br.com.thiago.geradorqrcode.webclient.GoogleDriveApiWebClient;
-import br.com.thiago.geradorqrcode.webclient.dto.GoogleDriveApiResponse;
-import br.com.thiago.geradorqrcode.webclient.dto.UploadFileRequest;
+import br.com.thiago.geradorqrcode.webclient.googledriveapi.GoogleDriveApiWebClient;
+import br.com.thiago.geradorqrcode.webclient.googledriveapi.dto.GoogleDriveApiResponse;
+import br.com.thiago.geradorqrcode.webclient.googledriveapi.dto.UploadFileRequest;
+import br.com.thiago.geradorqrcode.webclient.urlshortener.UrlShortenerWebClient;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageConfig;
@@ -43,6 +44,7 @@ import java.util.Optional;
 public class QRCodeService {
 
     private final GoogleDriveApiWebClient googleDriveApiWebClient;
+    private final UrlShortenerWebClient urlShortenerWebClient;
     private final QrCodeRepository qrCodeRepository;
 
     @Value("${client.google-drive-api-service.project-id}")
@@ -124,11 +126,13 @@ public class QRCodeService {
         final var text = request.getText();
         return generateQRCodeToFile(text, 300, 300)
                 .flatMap(file -> googleDriveApiWebClient.uploadFile(file, googleApiUploadRequest)
-                        .flatMap(googleDriveApiResponse -> qrCodeRepository.save(buildQrCode(googleDriveApiResponse))
+                        .flatMap(googleDriveApiResponse -> urlShortenerWebClient.shortenUrl(googleDriveApiResponse.getUrl())
+                                .map(shortUrl -> (buildQrCode(googleDriveApiResponse, shortUrl)))
+                                .flatMap(qrCodeRepository::save)
                                 .publishOn(Schedulers.boundedElastic())
                                 .map(qrCode -> {
                                     try {
-                                        return new GenerateQrCodeResponse(Files.readAllBytes(file.toPath()), googleDriveApiResponse.getUrl());
+                                        return new GenerateQrCodeResponse(Files.readAllBytes(file.toPath()), qrCode.getUrl());
                                     } catch (IOException e) {
                                         throw new RuntimeException(e);
                                     }
@@ -136,9 +140,9 @@ public class QRCodeService {
                 .onErrorResume(error -> Mono.error(new RuntimeException("Error generating QR Code link", error)));
     }
 
-    private QrCode buildQrCode(GoogleDriveApiResponse googleDriveApiResponse) {
+    private QrCode buildQrCode(GoogleDriveApiResponse googleDriveApiResponse, String shortUrl) {
         return QrCode.builder()
-                .url(googleDriveApiResponse.getUrl())
+                .url(shortUrl)
                 .expirationDate(LocalDateTime.now().plusMonths(1))
                 .isActive(Boolean.TRUE)
                 .fileId(googleDriveApiResponse.getFileId())
@@ -180,10 +184,10 @@ public class QRCodeService {
                 .then();
     }
 
-    @Scheduled(cron = "0 */5 * * * *")
+    @Scheduled(cron = "0 0 0 * * ?")
     public Flux<Void> deleteQRCodeJob() {
         log.info("Deleting QR Codes expired");
-        return qrCodeRepository.findToExpirate()
+        return qrCodeRepository.findToExpire()
                 .flatMap(qrcode -> googleDriveApiWebClient.deleteFile(googleDriveProjectId, qrcode.getFileId())
                         .then(Mono.just(qrcode.delete()))
                         .flatMap(qrCodeRepository::save)

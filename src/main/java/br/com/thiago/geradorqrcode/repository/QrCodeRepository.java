@@ -13,6 +13,6 @@ public interface QrCodeRepository extends ReactiveCrudRepository<QrCode, Long> {
     @Query("select q.* from qr_code q " +
             "where q.expiration_date <= now() " +
             "and q.is_active = true;")
-    Flux<QrCode> findToExpirate();
+    Flux<QrCode> findToExpire();
 
 }

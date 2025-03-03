@@ -1,11 +1,10 @@
-package br.com.thiago.geradorqrcode.webclient.impl;
+package br.com.thiago.geradorqrcode.webclient.googledriveapi.impl;
 
-import br.com.thiago.geradorqrcode.webclient.GoogleDriveApiWebClient;
-import br.com.thiago.geradorqrcode.webclient.dto.GoogleDriveApiResponse;
-import br.com.thiago.geradorqrcode.webclient.dto.UploadFileRequest;
+import br.com.thiago.geradorqrcode.webclient.googledriveapi.GoogleDriveApiWebClient;
+import br.com.thiago.geradorqrcode.webclient.googledriveapi.dto.GoogleDriveApiResponse;
+import br.com.thiago.geradorqrcode.webclient.googledriveapi.dto.UploadFileRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
