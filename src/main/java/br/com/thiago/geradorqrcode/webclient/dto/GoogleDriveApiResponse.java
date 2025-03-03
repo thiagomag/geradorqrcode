@@ -20,4 +20,5 @@ public class GoogleDriveApiResponse {
     private Integer statusCode;
     private String message;
     private String url;
+    private String fileId;
 }

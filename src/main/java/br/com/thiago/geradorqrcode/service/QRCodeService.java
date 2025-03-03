@@ -2,7 +2,10 @@ package br.com.thiago.geradorqrcode.service;
 
 import br.com.thiago.geradorqrcode.controller.dto.GenerateQRCodeRequest;
 import br.com.thiago.geradorqrcode.controller.dto.GenerateQrCodeResponse;
+import br.com.thiago.geradorqrcode.model.QrCode;
+import br.com.thiago.geradorqrcode.repository.QrCodeRepository;
 import br.com.thiago.geradorqrcode.webclient.GoogleDriveApiWebClient;
+import br.com.thiago.geradorqrcode.webclient.dto.GoogleDriveApiResponse;
 import br.com.thiago.geradorqrcode.webclient.dto.UploadFileRequest;
 import com.google.zxing.BarcodeFormat;
 import com.google.zxing.WriterException;
@@ -11,7 +14,12 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -24,14 +32,21 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
 import java.util.Objects;
 import java.util.Optional;
 
+@Slf4j
 @Service
+@EnableScheduling
 @RequiredArgsConstructor
 public class QRCodeService {
 
     private final GoogleDriveApiWebClient googleDriveApiWebClient;
+    private final QrCodeRepository qrCodeRepository;
+
+    @Value("${client.google-drive-api-service.project-id}")
+    private String googleDriveProjectId;
 
     public Mono<byte[]> generateQRCode(GenerateQRCodeRequest request) {
         return Mono.fromCallable(() -> {
@@ -109,15 +124,25 @@ public class QRCodeService {
         final var text = request.getText();
         return generateQRCodeToFile(text, 300, 300)
                 .flatMap(file -> googleDriveApiWebClient.uploadFile(file, googleApiUploadRequest)
-                        .publishOn(Schedulers.boundedElastic())
-                        .map(googleDriveApiResponse -> {
-                            try {
-                                return new GenerateQrCodeResponse(Files.readAllBytes(file.toPath()), googleDriveApiResponse.getUrl());
-                            } catch (IOException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }))
+                        .flatMap(googleDriveApiResponse -> qrCodeRepository.save(buildQrCode(googleDriveApiResponse))
+                                .publishOn(Schedulers.boundedElastic())
+                                .map(qrCode -> {
+                                    try {
+                                        return new GenerateQrCodeResponse(Files.readAllBytes(file.toPath()), googleDriveApiResponse.getUrl());
+                                    } catch (IOException e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })))
                 .onErrorResume(error -> Mono.error(new RuntimeException("Error generating QR Code link", error)));
+    }
+
+    private QrCode buildQrCode(GoogleDriveApiResponse googleDriveApiResponse) {
+        return QrCode.builder()
+                .url(googleDriveApiResponse.getUrl())
+                .expirationDate(LocalDateTime.now().plusMonths(1))
+                .isActive(Boolean.TRUE)
+                .fileId(googleDriveApiResponse.getFileId())
+                .build();
     }
 
     private UploadFileRequest buildGoogleApiUploadRequest() {
@@ -144,4 +169,28 @@ public class QRCodeService {
                 .onErrorResume(error -> Mono.error(new RuntimeException("Error generating QR Code to file", error)));
     }
 
+    public Mono<Void> deleteQRCode(String fileId) {
+        log.info("Deleting QR Code with fileId: {}", fileId);
+        return qrCodeRepository.findByFileId(fileId)
+                .switchIfEmpty(Mono.defer(() -> Mono.error(new RuntimeException("QR Code not found"))))
+                .flatMap(qrcode -> googleDriveApiWebClient.deleteFile(googleDriveProjectId, fileId)
+                        .then(Mono.just(qrcode.delete()))
+                        .flatMap(qrCodeRepository::save))
+                .onErrorResume(error -> Mono.error(new RuntimeException("Error deleting QR Code", error)))
+                .then();
+    }
+
+    @Scheduled(cron = "0 */5 * * * *")
+    public Flux<Void> deleteQRCodeJob() {
+        log.info("Deleting QR Codes expired");
+        return qrCodeRepository.findToExpirate()
+                .flatMap(qrcode -> googleDriveApiWebClient.deleteFile(googleDriveProjectId, qrcode.getFileId())
+                        .then(Mono.just(qrcode.delete()))
+                        .flatMap(qrCodeRepository::save)
+                        .then())
+                .onErrorResume(error -> {
+                    log.error("Error deleting QR Code", error);
+                    return Mono.error(new RuntimeException("Error deleting QR Code", error));
+                });
+    }
 }

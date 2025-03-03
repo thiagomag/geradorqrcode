@@ -9,4 +9,6 @@ import java.io.File;
 public interface GoogleDriveApiWebClient {
 
     Mono<GoogleDriveApiResponse> uploadFile(File file, UploadFileRequest uploadFileRequest);
+
+    Mono<Void> deleteFile(String projectId, String fileId);
 }

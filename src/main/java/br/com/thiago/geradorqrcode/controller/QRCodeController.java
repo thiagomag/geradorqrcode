@@ -11,6 +11,7 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -63,5 +64,12 @@ public class QRCodeController {
                             .contentLength(file.length())
                             .body(resource);
                 });
+    }
+
+    @DeleteMapping
+    @Operation(summary = "Delete QR Code", description = "Delete a QR Code image from Google Drive")
+    @ApiResponse(responseCode = "200", description = "QR Code image deleted successfully")
+    public Mono<Void> deleteQRCode(@RequestParam String fileId) {
+        return qrCodeService.deleteQRCode(fileId);
     }
 }

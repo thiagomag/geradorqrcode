@@ -1,7 +1,12 @@
 spring:
   application:
     name: geradorqrcode
+  r2dbc:
+    url: r2dbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:qr_code}${DB_URL_PARAM:?ssl=false}
+    password: ${DB_PASSWORD:postgres}
+    username: ${DB_USER:postgres}
 
 client:
   google-drive-api-service:
     url: ${GOOGLE_DRIVE_API_SERVICE_URL:https://google-drive-api-service.onrender.com}
+    project-id: ${GOOGLE_DRIVE_API_SERVICE_PROJECT_ID:feisty-bindery-441214-i3}

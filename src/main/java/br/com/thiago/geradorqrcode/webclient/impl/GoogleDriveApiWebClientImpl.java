@@ -5,6 +5,7 @@ import br.com.thiago.geradorqrcode.webclient.dto.GoogleDriveApiResponse;
 import br.com.thiago.geradorqrcode.webclient.dto.UploadFileRequest;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
@@ -36,6 +37,14 @@ public class GoogleDriveApiWebClientImpl implements GoogleDriveApiWebClient {
                 .body(BodyInserters.fromMultipartData(createMultipartBody(file, request)))
                 .retrieve()
                 .bodyToMono(GoogleDriveApiResponse.class);
+    }
+
+    @Override
+    public Mono<Void> deleteFile(String projectId, String fileId) {
+        return webClient.delete()
+                .uri(String.format("/v1/google-drive/resources/%s/delete/%s", projectId, fileId))
+                .retrieve()
+                .bodyToMono(Void.class);
     }
 
     private MultiValueMap<String, HttpEntity<?>> createMultipartBody(File file, UploadFileRequest request) {
