@@ -9,6 +9,7 @@ import br.com.thiago.geradorqrcode.webclient.googledriveapi.dto.GoogleDriveApiRe
 import br.com.thiago.geradorqrcode.webclient.googledriveapi.dto.UploadFileRequest;
 import br.com.thiago.geradorqrcode.webclient.urlshortener.UrlShortenerWebClient;
 import com.google.zxing.BarcodeFormat;
+import com.google.zxing.EncodeHintType;
 import com.google.zxing.WriterException;
 import com.google.zxing.client.j2se.MatrixToImageConfig;
 import com.google.zxing.client.j2se.MatrixToImageWriter;
@@ -26,6 +27,7 @@ import reactor.core.scheduler.Schedulers;
 
 import javax.imageio.ImageIO;
 import java.awt.*;
+import java.awt.geom.Ellipse2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -34,6 +36,7 @@ import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -59,7 +62,7 @@ public class QRCodeService {
                         final var foregroundColor = parseHexColor(Optional.ofNullable(request.getForegroundColor())
                                 .orElse("0xFF000000"));
 
-                        final var bitMatrix = new QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 300, 300);
+                        final var bitMatrix = new QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 300, 300, Map.of(EncodeHintType.MARGIN, 1));
 
                         final var config = new MatrixToImageConfig(foregroundColor, backgroundColor);
 
@@ -96,30 +99,50 @@ public class QRCodeService {
 
         // Verifica se o caminho do logo é uma URL ou um caminho local
         if (logoPath.startsWith("http://") || logoPath.startsWith("https://")) {
-            // Carrega o logo da URL
             logo = ImageIO.read(new URL(logoPath));
         } else {
-            // Carrega o logo local
             logo = ImageIO.read(Objects.requireNonNull(getClass().getResourceAsStream(logoPath)));
         }
 
-        // Calcula a posição e o tamanho do logo no QR Code
-        final var logoWidth = qrImage.getWidth() / 5; // O logo será 1/5 da largura do QR
-        final var logoHeight = qrImage.getHeight() / 5;
-        final var logoX = (qrImage.getWidth() - logoWidth) / 2;
-        final var logoY = (qrImage.getHeight() - logoHeight) / 2;
+        // Definição do tamanho do círculo e do logo
+        final int qrSize = qrImage.getWidth();
+        final int circleSize = qrSize / 5; // O círculo terá 1/5 do tamanho do QR Code
+        final int logoSize = qrSize / 6;   // O logo terá 1/6 do tamanho do QR Code
+        final int centerX = (qrSize - circleSize) / 2;
+        final int centerY = (qrSize - circleSize) / 2;
 
-        // Redimensiona o logo para caber no QR Code
-        final var resizedLogo = logo.getScaledInstance(logoWidth, logoHeight, Image.SCALE_SMOOTH);
+        // Criar um logo redimensionado e circular
+        BufferedImage resizedLogo = new BufferedImage(logoSize, logoSize, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2dLogo = resizedLogo.createGraphics();
+        g2dLogo.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2dLogo.setClip(new Ellipse2D.Float(0, 0, logoSize, logoSize)); // Recorte circular
+        g2dLogo.drawImage(logo.getScaledInstance(logoSize, logoSize, Image.SCALE_SMOOTH), 0, 0, null);
+        g2dLogo.dispose();
 
-        // Sobrepõe o logo ao QR Code
-        final var g2d = qrImage.createGraphics();
-        g2d.drawImage(resizedLogo, logoX, logoY, null);
+        // Criar o círculo de fundo com borda
+        BufferedImage circleBackground = new BufferedImage(circleSize, circleSize, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2dCircle = circleBackground.createGraphics();
+        g2dCircle.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Desenha o círculo branco com borda preta
+        g2dCircle.setColor(Color.WHITE);
+        g2dCircle.fillOval(0, 0, circleSize, circleSize);
+        g2dCircle.drawOval(0, 0, circleSize, circleSize);
+
+        // Desenha o logo dentro do círculo
+        int logoX = (circleSize - logoSize) / 2;
+        int logoY = (circleSize - logoSize) / 2;
+        g2dCircle.drawImage(resizedLogo, logoX, logoY, null);
+        g2dCircle.dispose();
+
+        // Sobrepor o círculo ao QR Code
+        Graphics2D g2d = qrImage.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.drawImage(circleBackground, centerX, centerY, null);
         g2d.dispose();
 
         return qrImage;
     }
-
 
     public Mono<GenerateQrCodeResponse> generateQRCodeLink(GenerateQRCodeRequest request) {
         final var googleApiUploadRequest = buildGoogleApiUploadRequest();
