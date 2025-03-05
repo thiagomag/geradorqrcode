@@ -24,7 +24,7 @@ public class GoogleDriveApiWebClientImpl implements GoogleDriveApiWebClient {
     private final ObjectMapper objectMapper;
 
     public GoogleDriveApiWebClientImpl(WebClient.Builder builder, ObjectMapper objectMapper) {
-        this.webClient = builder.baseUrl("http://localhost:8081").build();
+        this.webClient = builder.baseUrl("https://google-drive-api-service.onrender.com").build();
         this.objectMapper = objectMapper;
     }
 

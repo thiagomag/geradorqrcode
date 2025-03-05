@@ -11,7 +11,7 @@ public class UrlShortenerWebClientImpl implements UrlShortenerWebClient {
     private final WebClient webClient;
 
     public UrlShortenerWebClientImpl(WebClient.Builder builder) {
-        this.webClient = builder.baseUrl("http://localhost:8082").build();
+        this.webClient = builder.baseUrl("https://short-q0z8.onrender.com").build();
     }
 
     @Override
